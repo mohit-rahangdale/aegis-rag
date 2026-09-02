@@ -152,7 +152,24 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
   5. **Unified Health Probing Without Credential Leakage**:
      * Parallel non-blocking health checks report dependency statuses without exposing database connection strings or secret keys.
 
+### 4.7 Ingestion, Hybrid Retrieval & Reranking Architecture
+
+* **Problem Solved**: Single-retriever blindness (dense vectors missing exact acronyms/codes, keyword search missing semantic intent) and noisy context drowning the LLM generator.
+* **Key Design Decisions**:
+  1. **Multi-Format Ingestion**:
+     * Dedicated loaders for PDF (`pypdf`), Markdown, and plain text with page-aware extraction.
+     * Content deduplication via SHA-256 prevents re-embedding existing documents.
+  2. **Boundary-Preserving Chunking**:
+     * `TextChunker` groups text along natural paragraph and sentence boundaries with configurable overlap windows.
+  3. **Hybrid Dense + Sparse Search**:
+     * **Dense**: Qdrant cosine similarity search over Gemini vector embeddings.
+     * **Sparse**: BM25 keyword matching for exact terms, acronyms, and technical IDs.
+     * **Fusion**: Reciprocal Rank Fusion (RRF) normalizes and fuses ranked lists using $RRF(d) = \sum \frac{w}{60 + rank}$.
+  4. **Contextual Passage Reranking**:
+     * Post-retrieval cross-scoring elevates the most precise passages to top positions before passing to generation.
+
 ---
+
 
 
 ## 5. Technology Matrix
