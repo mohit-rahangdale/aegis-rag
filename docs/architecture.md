@@ -134,7 +134,26 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
   5. **Traceable Request Correlation**:
      * `request_id` is propagated end-to-end and injected into structured logs for auditability.
 
+### 4.6 Data and Storage Architecture
+
+* **Problem Solved**: Heterogeneous storage demands in a production RAG system (relational metadata, temporary caching, raw file storage, and dense vector embeddings).
+* **Key Design Decisions**:
+  1. **PostgreSQL with SQLAlchemy & Alembic**:
+     * Stores relational document records, SHA-256 checksums (for ingestion deduplication), processing states, and timestamps.
+     * Async SQLAlchemy with `asyncpg` enables non-blocking query execution.
+  2. **Redis**:
+     * Ultra-low latency in-memory store for conversation state, short-term message buffers, and fast session coordination.
+  3. **MinIO (S3-Compatible Object Store)**:
+     * Stores immutable raw files (PDFs, Markdown, text files) prior to chunking and extraction.
+     * Prevents large binary payloads from bloating PostgreSQL.
+  4. **Qdrant Cloud (Managed Vector Engine)**:
+     * Hosted vector search engine isolated from local infrastructure bloat.
+     * Implements HNSW indexing and payload filtering for dense retrieval.
+  5. **Unified Health Probing Without Credential Leakage**:
+     * Parallel non-blocking health checks report dependency statuses without exposing database connection strings or secret keys.
+
 ---
+
 
 ## 5. Technology Matrix
 

@@ -47,6 +47,26 @@ class Settings(BaseSettings):
     circuit_breaker_failure_threshold: int = 3
     circuit_breaker_recovery_timeout: float = 30.0
 
+    # Storage & Databases (Phase 3)
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/aegisrag"
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_echo: bool = False
+
+    redis_url: str = "redis://localhost:6379/0"
+    redis_default_ttl_seconds: int = 3600
+
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "aegisrag-documents"
+    minio_secure: bool = False
+
+    qdrant_url: str | None = None
+    qdrant_api_key: str | None = None
+    qdrant_collection: str = "aegisrag_documents"
+    qdrant_vector_size: int = 768
+
     @property
     def is_production(self) -> bool:
         """Check if application is running in production."""

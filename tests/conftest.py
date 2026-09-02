@@ -24,6 +24,7 @@ def test_settings() -> Settings:
         debug=True,
         log_level="DEBUG",
         log_format="text",
+        database_url="sqlite+aiosqlite:///:memory:",
     )
 
 

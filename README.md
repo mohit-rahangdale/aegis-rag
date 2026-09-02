@@ -124,13 +124,21 @@ cp .env.example .env
 pip install -r requirements.txt
 ```
 
-### 3. Run the Service
+### 3. Start Local Infrastructure (PostgreSQL, Redis, MinIO)
+
+```bash
+docker compose up -d
+```
+
+*(Note: Qdrant Cloud is managed remotely; configure `QDRANT_URL` and `QDRANT_API_KEY` in `.env`).*
+
+### 4. Run the Service
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 4. Interactive API Documentation
+### 5. Interactive API Documentation
 
 Open your browser to:
 - **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
@@ -159,8 +167,9 @@ python -m compileall app
 
 - [x] **Phase 1: Foundation** (FastAPI, Pydantic Settings, Structured Logging, Health, Tests, Docs)
 - [x] **Phase 2: Production LLM Gateway** (Gemini + Mistral fallback, circuit breaker, retry, usage tracking)
-- [ ] **Phase 3: Data & Storage** (PostgreSQL, Qdrant Cloud, Redis, MinIO)
+- [x] **Phase 3: Data & Storage** (PostgreSQL, Qdrant Cloud, Redis, MinIO)
 - [ ] **Phase 4: Document Ingestion Pipeline** (PDF/TXT/MD, chunking, embeddings, checksums)
+
 - [ ] **Phase 5: Hybrid Retrieval & Reranking** (Dense + Sparse fusion, reranker)
 - [ ] **Phase 6: Corrective RAG Workflow** (Retrieval evaluation, query rewriting, grounding check)
 - [ ] **Phase 7: Agentic Orchestration** (LangGraph state machine)

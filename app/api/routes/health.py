@@ -6,6 +6,7 @@ from fastapi import APIRouter, status
 from pydantic import BaseModel, Field
 
 from app.config.settings import get_settings
+from app.health.checks import get_overall_health
 
 router = APIRouter(tags=["Health"])
 
@@ -31,11 +32,14 @@ class HealthResponse(BaseModel):
     description="Check the health status of AegisRAG and its downstream dependencies.",
 )
 async def get_health() -> HealthResponse:
-    """Return the health status of the service."""
+    """Return the health status of the service and its storage dependencies."""
     settings = get_settings()
+    overall_status, dependencies = await get_overall_health()
     return HealthResponse(
-        status="healthy",
+        status=overall_status,
         service=settings.app_name,
         version=settings.app_version,
         environment=settings.app_env,
+        dependencies=dependencies,
     )
+

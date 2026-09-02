@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  # Relational Database: Document metadata, conversation history, audit logs
+  postgres:
+    image: postgres:16-alpine
+    container_name: aegisrag-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: aegisrag
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aegisrag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # In-Memory Cache: Fast short-term memory, session state, rate limits
+  redis:
+    image: redis:7-alpine
+    container_name: aegisrag-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # S3-Compatible Object Store: Raw ingested files (PDF, TXT, Markdown)
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: aegisrag-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
