@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_format: Literal["json", "text"] = "json"
 
+    # LLM Gateway Settings (Phase 2)
+    gemini_api_key: str | None = None
+    mistral_api_key: str | None = None
+    primary_llm_provider: str = "gemini"
+    fallback_llm_provider: str = "mistral"
+    default_gemini_model: str = "gemini-2.5-flash"
+    default_mistral_model: str = "mistral-small-latest"
+    gateway_timeout_seconds: float = 30.0
+    gateway_max_retries: int = 3
+    gateway_backoff_factor: float = 1.5
+    circuit_breaker_failure_threshold: int = 3
+    circuit_breaker_recovery_timeout: float = 30.0
+
     @property
     def is_production(self) -> bool:
         """Check if application is running in production."""

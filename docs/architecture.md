@@ -117,6 +117,23 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
   * *Standard `unittest`*: Verbose boilerplate, less expressive fixtures, difficult async test setups.
 * **Decision**: **Pytest** with `pytest-asyncio` and `httpx.AsyncClient` + `TestClient`.
 
+### 4.5 Production LLM Gateway Architecture
+
+* **Problem Solved**: Single-provider fragility, vendor lock-in, unhandled transient errors, rate limits, and cascading downstream failures when external LLM endpoints degrade.
+* **Key Design Decisions**:
+  1. **Interface Segregation via `LLMProvider`**:
+     * Concrete providers (`GeminiProvider`, `MistralProvider`) are purely responsible for payload translation and client invocation.
+     * Crucially, providers DO NOT implement their own retry, timeout, or circuit breaking loops.
+  2. **Centralized Gateway Resilience**:
+     * `LLMGateway` centralizes exponential backoff with jitter, timeout bounds, and per-provider circuit breakers (`CLOSED` -> `OPEN` -> `HALF_OPEN`).
+     * Prevents duplicate retry logic and ensures consistent observability across all model calls.
+  3. **Automatic Failover Routing**:
+     * When Gemini fails or its circuit breaker is OPEN, the gateway immediately fails over to Mistral without failing the upstream client request.
+  4. **Financial and Usage Accounting**:
+     * Every call calculates token consumption (`prompt_tokens`, `completion_tokens`) and estimated financial cost in USD via model rate tables.
+  5. **Traceable Request Correlation**:
+     * `request_id` is propagated end-to-end and injected into structured logs for auditability.
+
 ---
 
 ## 5. Technology Matrix

@@ -158,7 +158,7 @@ python -m compileall app
 ## 🗺️ Project Roadmap & Status
 
 - [x] **Phase 1: Foundation** (FastAPI, Pydantic Settings, Structured Logging, Health, Tests, Docs)
-- [ ] **Phase 2: Production LLM Gateway** (Gemini + Mistral fallback, circuit breaker, retry, usage tracking)
+- [x] **Phase 2: Production LLM Gateway** (Gemini + Mistral fallback, circuit breaker, retry, usage tracking)
 - [ ] **Phase 3: Data & Storage** (PostgreSQL, Qdrant Cloud, Redis, MinIO)
 - [ ] **Phase 4: Document Ingestion Pipeline** (PDF/TXT/MD, chunking, embeddings, checksums)
 - [ ] **Phase 5: Hybrid Retrieval & Reranking** (Dense + Sparse fusion, reranker)

@@ -8,6 +8,12 @@ from app.config.settings import Settings, get_settings
 from app.main import create_app
 
 
+@pytest.fixture
+def anyio_backend():
+    """Specify asyncio as default backend for AnyIO tests."""
+    return "asyncio"
+
+
 @pytest.fixture(scope="session")
 def test_settings() -> Settings:
     """Fixture providing testing settings."""
