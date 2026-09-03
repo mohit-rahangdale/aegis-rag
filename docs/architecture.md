@@ -33,7 +33,7 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
                         ┌────────────────────┼────────────────────┐
                         ▼                    ▼                    ▼
                  Input Guardrails    Conversation Memory    Query Analysis
-              (NeMo / Injection DB)     (Redis/PG)        (Intent / Subqueries)
+              (Injection & Fast-Path)    (Redis/PG)        (Intent / Subqueries)
                         │                    │                    │
                         └────────────────────┼────────────────────┘
                                              ▼
@@ -168,7 +168,28 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
   4. **Contextual Passage Reranking**:
      * Post-retrieval cross-scoring elevates the most precise passages to top positions before passing to generation.
 
+### 4.8 Corrective Agentic RAG (CRAG), Guardrails & Memory Architecture
+
+* **Problem Solved**: Susceptibility to adversarial prompt injection, hallucinated answers unsupported by context, static retrieval failures, and stateless forgetfulness across turns.
+* **Key Design Decisions**:
+  1. **Deterministic Agentic Orchestration via LangGraph**:
+     * A `StateGraph` defines the explicit control flow: `Guardrail -> Retrieve -> Grade -> (Rewrite if weak) -> Generate -> Verify Grounding -> Memory Persistence`.
+     * Replaces opaque black-box loops with observable, auditable transitions.
+  2. **Automated Retrieval Correction (CRAG)**:
+     * Chunks below confidence floor trigger query reformulation via the LLM gateway.
+     * Prevents poor search results from polluting the generation prompt, bounded by an iteration budget (max 2 iterations).
+  3. **Multi-Layer Safety Guardrails**:
+     * **Input Stage**: Pattern and heuristic defense against system prompt leaks, instruction overrides, and jailbreak personas (e.g. DAN).
+     * **Output Stage**: Factual grounding check measuring lexical and semantic alignment between retrieved context passages and the generated claims to flag hallucinations.
+  4. **Multi-Tier Hybrid Conversation Memory**:
+     * **Short-Term Tier**: Redis key-value cache (`memory:conv:{id}`) storing recent turns with sliding TTL for ultra-low latency prompt augmentation.
+     * **Long-Term Tier**: PostgreSQL `conversations` and `messages` tables for durable transcript storage, user session tracking, and compliance audits.
+  5. **Token-Saving Conversational Fast-Path**:
+     * Intercepts routine pleasantries (greetings, thanks, farewells, help) before any vector search or model invocation.
+     * Returns instant response with zero token usage, sub-5ms latency, and seamless conversation history recording.
+
 ---
+
 
 
 
@@ -186,8 +207,9 @@ AegisRAG is a production-grade Corrective Retrieval-Augmented Generation (CRAG) 
 | **Cache & State** | Redis | Session state, short-term message memory, circuit breakers |
 | **Object Storage** | MinIO (S3-compatible) | Raw file storage (PDF, Markdown, TXT) |
 | **Agentic Workflow** | LangGraph | Deterministic state machine for Corrective RAG |
-| **Guardrails** | NeMo Guardrails + Custom Pydantic | Defense against prompt injection, jailbreaks, hallucinations |
+| **Guardrails** | Custom Regex & Heuristic Fast-Path | Prompt injection defense, token-saving pleasantries, hallucination checking |
 | **Experiment Tracking** | MLflow | Retrieval parameter tuning, prompt evaluations, metric logging |
 | **Data Versioning** | DVC | Versioning gold evaluation benchmarks and test datasets |
 | **Observability** | Langfuse | Distributed LLM tracing, latency, token, and cost tracking |
 | **CI/CD** | GitHub Actions | Automated linting, test suites, and evaluation metric gates |
+

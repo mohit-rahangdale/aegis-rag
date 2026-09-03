@@ -1,174 +1,160 @@
 # AegisRAG
 
-> Production-oriented Corrective RAG and Agentic AI platform with multi-LLM failover, hybrid retrieval, reranking, AI guardrails, memory, evaluation, observability, and LLMOps.
+A production-ready Retrieval-Augmented Generation (RAG) service with hybrid search, multi-model fallback, safety guardrails, and conversation memory.
 
----
-
-## 🎯 Overview
-
-**AegisRAG** is an enterprise-grade GenAI engineering platform built to solve the real-world limitations of naive Retrieval-Augmented Generation (RAG) and fragile chatbot toys.
-
-Instead of assuming retrieved chunks are always accurate, AegisRAG evaluates retrieval quality dynamically, rewrites ambiguous queries, executes iterative re-retrieval (CRAG), and enforces strict grounding before answering. A resilient **Multi-LLM Gateway** provides automatic fallback from Gemini to Mistral with exponential backoff and circuit breaking, while multi-layered guardrails protect against prompt injection and toxic outputs.
-
----
-
-## 🏛️ System Architecture
+## Architecture Overview
 
 ```text
-                                 [ User / Client Query ]
-                                            │
-                                            ▼
-                                   FastAPI Application
-                                            │
-                                            ▼
-                                Pydantic Request Validation
-                                            │
-                                            ▼
-                                  Agentic Orchestrator
-                                      (LangGraph)
-                                            │
-                        ┌───────────────────┼───────────────────┐
-                        ▼                   ▼                   ▼
-                 Input Guardrails         Memory          Query Analysis
-               (Prompt Injection DB)    (Redis/PG)       (Intent/Subqueries)
-                        │                   │                   │
-                        └───────────────────┼───────────────────┘
-                                            ▼
-                                  Hybrid Retrieval Layer
-                                            │
-                                 ┌──────────┴──────────┐
-                                 ▼                     ▼
-                           Dense Search          Sparse Search
-                          (Qdrant Cloud)            (BM25)
-                                 │                     │
-                                 └──────────┬──────────┘
-                                            ▼
-                                      Neural Reranker
-                                            │
-                                            ▼
-                                Retrieval Quality Gate (CRAG)
-                                            │
-                             ┌──────────────┴──────────────┐
-                             ▼                             ▼
-                        Good Context                  Poor Context
-                             │                             │
-                             │                       Query Rewrite
-                             │                             │
-                             │                        Re-retrieval
-                             │                             │
-                             └──────────────┬──────────────┘
-                                            ▼
-                                    Multi-LLM Gateway
-                                 ┌─────────────────────┐
-                                 │ Gemini (Primary)    │
-                                 │      ↓ fallback     │
-                                 │ Mistral             │
-                                 └─────────────────────┘
-                                            │
-                                            ▼
-                                 Grounding & Citation Check
-                                            │
-                                            ▼
-                                    Output Guardrails
-                                            │
-                                            ▼
-                                   Validated Answer
-                                            │
-                        ┌───────────────────┼───────────────────┐
-                        ▼                   ▼                   ▼
-                    PostgreSQL            Redis              Langfuse
-                 (Metadata & Memory)   (Session Cache)     (Observability)
+User Query
+    │
+    ▼
+FastAPI (/chat)
+    │
+    ▼
+Guardrails & Fast-Path ──(greeting / routine dialogue)──► Instant Response (0 tokens)
+    │                                                              ▲
+    │ (substantive question)                                       │
+    ▼                                                              │
+Hybrid Retrieval (Qdrant Cloud dense + BM25 sparse)                │
+    │                                                              │
+    ▼                                                              │
+Passage Reranker                                                   │
+    │                                                              │
+    ▼                                                              │
+Relevance Check ──(weak context)──► Query Rewrite ──► Re-retrieve ─┘
+    │
+    ▼ (good context)
+LLM Gateway (Gemini with Mistral failover + Circuit Breaker)
+    │
+    ▼
+Grounding Verification (Hallucination detector)
+    │
+    ▼
+Memory Persistence (Redis sliding cache + PostgreSQL history)
+    │
+    ▼
+Response to Client (Answer + Citations + Latency)
 ```
 
----
+## Key Features
 
-## 🛠️ Feature & Technology Mapping
+- **Multi-LLM Gateway**: Primary routing to Google Gemini with automatic failover to Mistral AI. Built-in exponential backoff retries, request timeouts, and circuit breaking.
+- **Hybrid Retrieval**: Dense semantic vectors via Qdrant Cloud combined with sparse BM25 lexical search using Reciprocal Rank Fusion (RRF).
+- **Corrective RAG (CRAG)**: LangGraph state machine that evaluates retrieved chunk relevance and rewrites queries when retrieved context is weak.
+- **Token-Saving Guardrails**:
+  - Intercepts and blocks adversarial prompt injections and jailbreaks.
+  - Answers common conversational pleasantries (greetings, thanks, farewells) directly without LLM calls, saving tokens and latency.
+- **Hallucination Detection**: Verifies generated claims against retrieved passages to flag ungrounded output.
+- **Two-Tier Memory**: Redis for fast recent-turn caching (sliding window) and PostgreSQL for durable conversation persistence and audits.
+- **Document Ingestion**: Supports PDF, Markdown, and plain text files with deduplication (SHA-256) and sentence-boundary chunking.
 
-| Feature | Technology | Engineering Purpose |
-| :--- | :--- | :--- |
-| **Multi-LLM Gateway** | Gemini + Mistral | Resilient failover, circuit breaking, retry & cost tracking |
-| **Hybrid Retrieval** | Qdrant Cloud + BM25 | Dense semantic search + lexical exact matching |
-| **Neural Reranking** | Cross-Encoder Reranker | Precision scoring for top candidates before generation |
-| **Corrective RAG** | LangGraph State Graph | Self-correction loop: evaluates retrieval and rewrites query |
-| **Grounding Check** | Hallucination Detector | Verifies response faithfulness against retrieved context |
-| **AI Guardrails** | NeMo Guardrails + Pydantic | Defense against prompt injection, jailbreaks, and toxic output |
-| **Conversation Memory** | Redis + PostgreSQL | Short-term cache + durable conversation context |
-| **RAG Evaluation** | RAGAS / DeepEval | Measures Recall@K, Context Precision, and Faithfulness |
-| **LLM Evaluation** | Custom Eval Framework | Measures instruction adherence, latency, tokens, and cost |
-| **Experiment Tracking** | MLflow | Compares chunk sizes, embeddings, rerankers, and prompts |
-| **Data Versioning** | DVC | Version-controls golden benchmarks and evaluation datasets |
-| **Drift Monitoring** | Evidently AI | Tracks query drift, retrieval scores, and fallback rates |
-| **Observability** | Langfuse | Distributed end-to-end tracing for every LLM and retrieval call |
-| **CI/CD Automation** | GitHub Actions | Automated linting, test suite, and evaluation regression gates |
+## API Endpoints
 
----
+### Chat & Agent
+- `POST /chat`: Run agentic RAG query with memory, citations, and grounding checks.
+- `GET /conversations`: List active conversations with pagination.
+- `GET /conversations/{id}`: Get complete conversation transcript.
+- `DELETE /conversations/{id}`: Delete conversation from cache and database.
 
-## 🚀 Quick Start (Phase 1)
+### Documents & Ingestion
+- `POST /documents/upload`: Upload PDF, Markdown, or text file for indexing.
+- `GET /documents`: List ingested documents.
+- `GET /documents/{id}`: Get status and metadata of an ingested document.
 
-### 1. Prerequisites
+### Retrieval
+- `POST /retrieval/search`: Direct hybrid search (dense + sparse + rerank) over indexed chunks.
 
-- Python 3.11+ (Python 3.13 tested)
-- Git
+### Health
+- `GET /health`: Health status of the API, PostgreSQL, Redis, MinIO, Qdrant, and LLM providers.
 
-### 2. Environment Setup
+## Getting Started
+
+### 1. Requirements
+- Python 3.11+ (tested on Python 3.13)
+- Docker & Docker Compose
+
+### 2. Setup
+
+Clone the repository and install dependencies:
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/aegis-rag.git
+git clone https://github.com/mohit-rahangdale/aegis-rag.git
 cd aegis-rag
-
-# Copy environment settings
-cp .env.example .env
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Start Local Infrastructure (PostgreSQL, Redis, MinIO)
+Copy the sample environment file:
+
+```bash
+cp .env.example .env
+```
+
+Configure your API keys in `.env`:
+- `GEMINI_API_KEY`: Google AI Studio API key
+- `MISTRAL_API_KEY`: Mistral AI API key (fallback provider)
+- `QDRANT_URL` and `QDRANT_API_KEY`: Qdrant Cloud cluster endpoint and key
+
+### 3. Start Supporting Services
+
+Start PostgreSQL, Redis, and MinIO:
 
 ```bash
 docker compose up -d
 ```
 
-*(Note: Qdrant Cloud is managed remotely; configure `QDRANT_URL` and `QDRANT_API_KEY` in `.env`).*
+*(Note: Qdrant runs on Qdrant Cloud and does not need local container hosting).*
 
-### 4. Run the Service
+### 4. Run Migrations & Start Server
+
+Apply database migrations:
+
+```bash
+alembic upgrade head
+```
+
+Start the application:
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 5. Interactive API Documentation
+Interactive API documentation will be available at:
+- Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health Check: [http://localhost:8000/health](http://localhost:8000/health)
 
-Open your browser to:
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+## Running Tests
 
----
-
-## 🧪 Testing & Validation
-
-Execute the test suite with `pytest`:
+Run the test suite:
 
 ```bash
 pytest -v
 ```
 
-Execute Python bytecode compilation check:
+Check bytecode compilation:
 
 ```bash
 python -m compileall app
 ```
 
----
+## Project Structure
 
-## 🗺️ Project Roadmap & Status
-
-- [x] **Phase 1: Foundation** (FastAPI, Pydantic Settings, Structured Logging, Health, Tests, Docs)
-- [x] **Phase 2: Production LLM Gateway** (Gemini + Mistral fallback, circuit breaker, retry, usage tracking)
-- [x] **Phase 3: Data & Storage** (PostgreSQL, Qdrant Cloud, Redis, MinIO)
-- [x] **Phase 4: Core RAG & Ingestion Engine** (Multi-format Ingestion, Chunker, Hybrid Retrieval [Dense + Sparse BM25], Neural Reranking)
-- [ ] **Phase 5: Corrective Agentic RAG, Guardrails & Memory** (LangGraph State Graph, Retrieval Evaluation, Query Rewriting, AI Guardrails, Memory)
-- [ ] **Phase 6: Production Engineering, Evaluation & Observability** (Multi-layer Evaluation, MLflow, Langfuse, CI/CD, Docker & Hardening)
-
+```text
+aegis-rag/
+├── app/
+│   ├── agent/         # LangGraph CRAG state machine and workflow nodes
+│   ├── api/routes/    # FastAPI route handlers (chat, documents, retrieval, health)
+│   ├── config/        # Pydantic settings and environment management
+│   ├── core/          # Logging and middleware
+│   ├── db/            # PostgreSQL models, repositories, and connection setup
+│   ├── gateway/       # Multi-LLM gateway (Gemini/Mistral, circuit breaker, retry)
+│   ├── guardrails/    # Prompt injection scanner, fast-path dialogue, grounding verifier
+│   ├── ingestion/     # File loaders (PDF, MD, TXT), text chunker, pipeline
+│   ├── memory/        # Redis + PostgreSQL conversation memory manager
+│   ├── retrieval/     # Dense (Qdrant), Sparse (BM25), Hybrid (RRF), Reranker
+│   └── storage/       # Clients for PostgreSQL, Redis, MinIO, and Qdrant
+├── alembic/           # Database migration versions
+├── tests/             # Comprehensive unit and integration test suite
+├── docker-compose.yml # PostgreSQL, Redis, MinIO services
+├── requirements.txt   # Core Python dependencies
+└── pyproject.toml     # Project metadata and tooling config
+```
