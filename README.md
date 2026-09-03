@@ -1,6 +1,8 @@
 # AegisRAG
 
-A production-ready Retrieval-Augmented Generation (RAG) service with hybrid search, multi-model fallback, safety guardrails, and conversation memory.
+[![CI](https://github.com/mohit-rahangdale/aegis-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/mohit-rahangdale/aegis-rag/actions/workflows/ci.yml)
+
+A production-ready Retrieval-Augmented Generation (RAG) service with hybrid search, multi-model fallback, safety guardrails, conversation memory, and automated evaluation.
 
 ## Architecture Overview
 
@@ -27,7 +29,7 @@ Relevance Check ──(weak context)──► Query Rewrite ──► Re-retriev
 LLM Gateway (Gemini with Mistral failover + Circuit Breaker)
     │
     ▼
-Grounding Verification (Hallucination detector)
+Grounding Verification & Output Guardrails (PII / Leak Redaction)
     │
     ▼
 Memory Persistence (Redis sliding cache + PostgreSQL history)
@@ -44,9 +46,11 @@ Response to Client (Answer + Citations + Latency)
 - **Token-Saving Guardrails**:
   - Intercepts and blocks adversarial prompt injections and jailbreaks.
   - Answers common conversational pleasantries (greetings, thanks, farewells) directly without LLM calls, saving tokens and latency.
+- **Output Guardrails**: Redacts credentials/PII and blocks internal system prompt leaks before sending responses.
 - **Hallucination Detection**: Verifies generated claims against retrieved passages to flag ungrounded output.
 - **Two-Tier Memory**: Redis for fast recent-turn caching (sliding window) and PostgreSQL for durable conversation persistence and audits.
-- **Document Ingestion**: Supports PDF, Markdown, and plain text files with deduplication (SHA-256) and sentence-boundary chunking.
+- **RAG Evaluation Harness**: Automated scoring of Recall@K, Context Precision, and Faithfulness against a golden benchmark dataset.
+- **Automated CI/CD**: GitHub Actions pipeline validating linting, compilation, and unit tests across Python versions.
 
 ## API Endpoints
 
@@ -118,42 +122,59 @@ Start the application:
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Interactive API documentation will be available at:
+Interactive API documentation:
 - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
 
-## Running Tests
+## Testing & Evaluation
 
-Run the test suite:
-
+### 1. Run Automated Test Suite
 ```bash
 pytest -v
 ```
 
-Check bytecode compilation:
+### 2. Run RAG Evaluation Benchmark
+Execute the automated evaluation harness against the golden benchmark dataset:
 
 ```bash
-python -m compileall app
+python -m app.evaluation.runner
+```
+
+This calculates and displays a terminal summary table measuring:
+- **Recall@5**: Proportion of expected chunks retrieved in top 5.
+- **Context Precision**: Rank-weighted precision of relevant passages.
+- **Faithfulness**: Grounding ratio between generated answer and source context.
+- **Average Latency**: End-to-end response time per turn.
+
+### 3. Docker Build
+Build and run the production container:
+
+```bash
+docker build -t aegisrag .
+docker run -p 8000:8000 --env-file .env aegisrag
 ```
 
 ## Project Structure
 
 ```text
 aegis-rag/
+├── .github/workflows/ # GitHub Actions CI/CD pipelines
 ├── app/
 │   ├── agent/         # LangGraph CRAG state machine and workflow nodes
 │   ├── api/routes/    # FastAPI route handlers (chat, documents, retrieval, health)
 │   ├── config/        # Pydantic settings and environment management
 │   ├── core/          # Logging and middleware
 │   ├── db/            # PostgreSQL models, repositories, and connection setup
+│   ├── evaluation/    # RAG benchmark metrics (Recall@K, Precision, Faithfulness), runner
 │   ├── gateway/       # Multi-LLM gateway (Gemini/Mistral, circuit breaker, retry)
-│   ├── guardrails/    # Prompt injection scanner, fast-path dialogue, grounding verifier
+│   ├── guardrails/    # Prompt injection defense, fast-path dialogue, output sanitization
 │   ├── ingestion/     # File loaders (PDF, MD, TXT), text chunker, pipeline
 │   ├── memory/        # Redis + PostgreSQL conversation memory manager
 │   ├── retrieval/     # Dense (Qdrant), Sparse (BM25), Hybrid (RRF), Reranker
 │   └── storage/       # Clients for PostgreSQL, Redis, MinIO, and Qdrant
 ├── alembic/           # Database migration versions
-├── tests/             # Comprehensive unit and integration test suite
+├── tests/             # Comprehensive unit, integration, and evaluation test suite
+├── Dockerfile         # Multi-stage production container build
 ├── docker-compose.yml # PostgreSQL, Redis, MinIO services
 ├── requirements.txt   # Core Python dependencies
 └── pyproject.toml     # Project metadata and tooling config
