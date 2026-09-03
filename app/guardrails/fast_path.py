@@ -8,11 +8,11 @@ import re
 from typing import Optional
 
 _GREETING_PATTERN = re.compile(
-    r"^(hi|hello|hey|greetings|howdy|good\s+(morning|afternoon|evening|day))[!.,\s]*$",
+    r"^(hi|hello|hey|greetings|howdy|good\s+(morning|afternoon|evening|day))(\s+there)?([\s,!-]+(how\s+are\s+you(\s+doing)?|what('s|\s+is)\s+up|how\s+can\s+you\s+help(\s+me)?(\s+today)?|can\s+you\s+(help|assist)(\s+me)?(\s+today)?|what\s+can\s+you\s+do)?)?[!.,\s?]*$",
     re.IGNORECASE,
 )
 _THANKS_PATTERN = re.compile(
-    r"^(thanks|thank\s+you|thank\s+you\s+so\s+much|thanks\s+a\s+lot|much\s+appreciated)[!.,\s]*$",
+    r"^(thanks|thank\s+you|thank\s+you\s+so\s+much|thanks\s+a\s+lot|much\s+appreciated|thanks\s+for\s+(your\s+)?help)[!.,\s]*$",
     re.IGNORECASE,
 )
 _FAREWELL_PATTERN = re.compile(
@@ -24,7 +24,7 @@ _ACK_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _IDENTITY_PATTERN = re.compile(
-    r"^(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|help|help\s+me)[?!.,\s]*$",
+    r"^(who\s+are\s+you|what\s+are\s+you|what\s+can\s+you\s+do|can\s+you\s+help(\s+me)?|how\s+can\s+you\s+help(\s+me)?|can\s+you\s+assist(\s+me)?|help|help\s+me)[?!.,\s]*$",
     re.IGNORECASE,
 )
 

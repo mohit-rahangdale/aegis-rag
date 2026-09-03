@@ -75,7 +75,7 @@ class QdrantCollectionManager:
             return {
                 "name": target,
                 "status": str(info.status),
-                "vectors_count": getattr(info, "vectors_count", 0),
+                "vectors_count": getattr(info, "indexed_vectors_count", getattr(info, "points_count", 0)),
                 "points_count": getattr(info, "points_count", 0),
             }
         except Exception:

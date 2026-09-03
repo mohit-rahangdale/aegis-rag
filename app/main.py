@@ -10,16 +10,20 @@ from typing import AsyncGenerator, Dict
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app import __version__
 from app.api.routes.chat import router as chat_router
 from app.api.routes.conversations import router as conversations_router
 from app.api.routes.documents import router as documents_router
+from app.api.routes.evaluation import router as evaluation_router
 from app.api.routes.health import router as health_router
 from app.api.routes.retrieval import router as retrieval_router
 from app.config.settings import Settings, get_settings
 from app.core.logging import get_logger, setup_logging
+from app.dashboard import get_dashboard_html
+
 
 
 
@@ -34,6 +38,7 @@ class RootResponse(BaseModel):
     version: str = Field(..., description="Service version", example="0.1.0")
     status: str = Field(..., description="Operational status", example="operational")
     docs_url: str = Field(..., description="Interactive OpenAPI documentation URL", example="/docs")
+    dashboard_url: str = Field(..., description="Observability & Evaluation Dashboard URL", example="/dashboard")
     environment: str = Field(..., description="Running environment", example="development")
 
 
@@ -102,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(conversations_router)
     app.include_router(documents_router)
     app.include_router(retrieval_router)
+    app.include_router(evaluation_router)
 
     # Also include with API version prefix (/api/v1)
     app.include_router(health_router, prefix=settings.api_prefix)
@@ -109,9 +115,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(conversations_router, prefix=settings.api_prefix)
     app.include_router(documents_router, prefix=settings.api_prefix)
     app.include_router(retrieval_router, prefix=settings.api_prefix)
+    app.include_router(evaluation_router, prefix=settings.api_prefix)
 
-
-
+    @app.get(
+        "/dashboard",
+        response_class=HTMLResponse,
+        tags=["Observability & Evaluation"],
+        summary="Observability & Evaluation Dashboard",
+        description="Interactive human-engineered observability, evaluation leaderboard, and system telemetry dashboard.",
+    )
+    async def dashboard_view() -> HTMLResponse:
+        """Serve the human-engineered AegisRAG Observability and Evaluation Dashboard."""
+        return HTMLResponse(content=get_dashboard_html(), status_code=200)
 
     @app.get(
         "/",
@@ -128,6 +143,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             version=settings.app_version,
             status="operational",
             docs_url="/docs",
+            dashboard_url="/dashboard",
             environment=settings.app_env,
         )
 

@@ -9,14 +9,21 @@ INJECTION_PATTERNS: List[Tuple[str, re.Pattern]] = [
     (
         "instruction_override",
         re.compile(
-            r"(ignore|disregard|forget|bypass|override)\s+(all\s+)?(previous|prior|above)\s+(instructions|directives|prompts|rules|commands)",
+            r"(ignore|disregard|forget|bypass|override)\s+(all\s+)?(previous\s+|prior\s+|above\s+)?(instructions|directives|prompts|rules|commands)",
             re.IGNORECASE,
         ),
     ),
     (
         "system_prompt_leak",
         re.compile(
-            r"(reveal|print|show|output|repeat|display)\s+(the\s+)?(system\s+prompt|initial\s+prompt|hidden\s+instructions|system\s+instructions)",
+            r"(reveal|print|show|output|repeat|display)\s+(the\s+|all\s+)?(internal\s+|system\s+)?(system\s+prompt|initial\s+prompt|hidden\s+instructions|system\s+instructions|api\s+keys?|passwords?|credentials?|settings\.py)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "system_override",
+        re.compile(
+            r"(system\s+override|admin\s+override|root\s+access|sudo\s+mode)",
             re.IGNORECASE,
         ),
     ),
